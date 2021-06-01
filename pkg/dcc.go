@@ -3,8 +3,9 @@ package pkg
 import (
 	"errors"
 	"fmt"
-	"github.com/gravestench/bitstream"
 	"image/color"
+
+	"github.com/gravestench/bitstream"
 )
 
 const (
@@ -17,7 +18,9 @@ const (
 
 const (
 	signatureBits          = 8
+	versionBits            = 8
 	directionsBits         = 8
+	directionOffsetBits    = 32
 	framesPerDirectionBits = 32
 	sanityCheckBits        = 32
 	totalSizeCodedBits     = 32
@@ -38,6 +41,7 @@ type DCC struct {
 	framesPerDirection uint32
 	directions         []*Direction
 	palette            color.Palette
+	stream *bitstream.BitStream
 	dirty              bool // when anything is changed this flag is set, causes recalculation
 }
 
@@ -49,14 +53,16 @@ func (d *DCC) init() *DCC {
 	return d
 }
 
-func (d *DCC) FromBytes(data []byte) (*DCC, error) {
+func (d *DCC) FromBytes(data []byte) (_ *DCC, err error) {
 	if !d.dirty {
 		d.init()
 	}
 
 	stream := bitstream.FromBytes(data...)
 
-	if err := d.Decode(stream); err != nil {
+	d.stream = stream
+
+	if err = d.Decode(stream); err != nil {
 		return nil, err
 	}
 
@@ -77,15 +83,15 @@ func (d *DCC) Directions() []*Direction {
 
 func (d *DCC) Decode(stream *bitstream.BitStream) error {
 	if err := d.decodeHeader(stream); err != nil {
-		return fmt.Errorf("problem decoding header: %v", err)
+		return fmt.Errorf("error decoding dcc header, %v", err)
 	}
 
 	if err := d.decodeBody(stream); err != nil {
-		return fmt.Errorf("problem decoding body: %v", err)
+		return fmt.Errorf("error decoding dcc body, %v", err)
 	}
 
 	if err := d.generateImages(); err != nil {
-		return fmt.Errorf("problem generating frame images: %v", err)
+		return fmt.Errorf("error generating frame images, %v", err)
 	}
 
 	d.dirty = false
@@ -94,14 +100,14 @@ func (d *DCC) Decode(stream *bitstream.BitStream) error {
 }
 
 func (d *DCC) decodeHeader(stream *bitstream.BitStream) (err error) {
-	if signature, err := stream.Next(8).Bits().AsByte(); err != nil {
+	if signature, err := stream.Next(signatureBits).Bits().AsByte(); err != nil {
 		return err
 	} else if signature != FileSignature {
 		const fmtErr = "unexpected file signature %x, expecting %x"
 		return fmt.Errorf(fmtErr, signature, FileSignature)
 	}
 
-	if d.Version, err = stream.Next(signatureBits).Bits().AsByte(); err != nil {
+	if d.Version, err = stream.Next(versionBits).Bits().AsByte(); err != nil {
 		return err
 	}
 
@@ -115,6 +121,7 @@ func (d *DCC) decodeHeader(stream *bitstream.BitStream) (err error) {
 		return err
 	} else {
 		for idx := range d.directions {
+			d.directions[idx] = &Direction{}
 			d.directions[idx].frames = make([]*Frame, d.framesPerDirection)
 		}
 	}
@@ -136,7 +143,7 @@ func (d *DCC) decodeHeader(stream *bitstream.BitStream) (err error) {
 func (d *DCC) decodeBody(stream *bitstream.BitStream) error {
 	// decode each direction
 	for idx := 0; idx < len(d.directions); idx++ {
-		offset, err := stream.Next(32).Bits().AsUInt32()
+		offset, err := stream.Next(directionOffsetBits).Bits().AsUInt32()
 		if err != nil {
 			return err
 		}
@@ -146,20 +153,15 @@ func (d *DCC) decodeBody(stream *bitstream.BitStream) error {
 			return fmt.Errorf(fmtErr, offset, stream.Length())
 		}
 
-		// another sanity check
-		// the current position should be the offset which was encoded,
-		// and it should be where we are currently reading from as we
-		// are encountering it
-		// stream.SetPosition(int(offset))
-		if actual, encoded := stream.Position(), int(offset); actual != encoded {
-			const fmtErr = "actual offset (%x) does match match encoded offset (%x)"
-			return fmt.Errorf(fmtErr, actual, encoded)
-		}
-
 		d.directions[idx] = &Direction{dcc: d}
-		if err := d.directions[idx].decode(stream); err != nil {
-			const fmtErr = "problem decoding direction with index %d"
-			return fmt.Errorf(fmtErr, idx)
+
+		// the offset we just read is a byte offset within the file data that the direction starts at,
+		// so we want to reset the number of bits read and then set the offset here.
+		newStream := stream.Copy().SetBitPosition(0).SetPosition(int(offset))
+
+		if err := d.directions[idx].decode(newStream); err != nil {
+			const fmtErr = "direction index %d, %v"
+			return fmt.Errorf(fmtErr, idx, err)
 		}
 	}
 
@@ -187,4 +189,16 @@ func (d *DCC) SetPalette(p color.Palette) {
 
 func (d *DCC) Encode() ([]byte, error) {
 	return nil, errors.New("not yet implemented")
+}
+
+func (d *DCC) Clone() *DCC {
+	stream := d.stream.Copy()
+
+	stream.SetPosition(0)
+	stream.SetBitPosition(0)
+	bytes, _ := stream.Next(stream.Length()).Bytes().AsBytes()
+
+	newDcc, _ := FromBytes(bytes)
+
+	return newDcc
 }

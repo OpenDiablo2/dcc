@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/gravestench/bitstream"
 	"image"
-	"image/color"
 )
 
 const streamSizeBits = 20 // num bits for representing a substream
@@ -13,7 +12,7 @@ const streamSizeBits = 20 // num bits for representing a substream
 type CompressionFlag = int
 
 const (
-	RawPixelCompression CompressionFlag = iota
+	RawPixelCompression CompressionFlag = 1 << iota
 	EqualCellsCompression
 )
 
@@ -53,14 +52,14 @@ type Direction struct {
 }
 
 func (d *Direction) decode(stream *bitstream.BitStream) (err error) {
+	d.frames = make([]*Frame, d.dcc.framesPerDirection)
+
 	if err = d.decodeHeader(stream); err != nil {
-		const fmtErr = "decode direction header: %v"
-		return fmt.Errorf(fmtErr, err)
+		return err
 	}
 
 	if err = d.decodeBody(stream); err != nil {
-		const fmtErr = "decode direction body: %v"
-		return fmt.Errorf(fmtErr, err)
+		return err
 	}
 
 	return nil
@@ -112,8 +111,7 @@ func (d *Direction) decodeHeader(stream *bitstream.BitStream) (err error) {
 
 func (d *Direction) decodeBody(stream *bitstream.BitStream) (err error) {
 	if err = d.decodeFrameHeaders(stream); err != nil {
-		const fmtErr = "decoding frame headers, %v"
-		return fmt.Errorf(fmtErr, err)
+		return err
 	}
 
 	if d.OptionalDataBits > 0 {
@@ -121,13 +119,11 @@ func (d *Direction) decodeBody(stream *bitstream.BitStream) (err error) {
 	}
 
 	if err = d.decodeCompressionFlags(stream); err != nil {
-		const fmtErr = "decoding compression flags, %v"
-		return fmt.Errorf(fmtErr, err)
+		return err
 	}
 
 	if err = d.decodePaletteEntries(stream); err != nil {
-		const fmtErr = "decoding palette entries, %v"
-		return fmt.Errorf(fmtErr, err)
+		return err
 	}
 
 	// HERE BE GIANTS:
@@ -136,10 +132,22 @@ func (d *Direction) decodeBody(stream *bitstream.BitStream) (err error) {
 	// the EqualCellsBitstreamSize is 20 bytes, then the next bit stream
 	// will be located at byte 23, bit offset 6!
 	ec := stream.Copy()
-	pm := stream.OffsetBitPosition(int(d.EqualCellsBitstreamSize)).Copy()
-	et := stream.OffsetBitPosition(int(d.PixelMaskBitstreamSize)).Copy()
-	rpc := stream.OffsetBitPosition(int(d.EncodingTypeBitstreamSize)).Copy()
-	pcd := stream.OffsetBitPosition(int(d.RawPixelCodesBitstreamSize)).Copy()
+
+	stream.OffsetPosition(int(d.EqualCellsBitstreamSize))
+
+	pm := stream.Copy()
+
+	stream.OffsetBitPosition(int(d.PixelMaskBitstreamSize))
+
+	et := stream.Copy()
+
+	stream.OffsetBitPosition(int(d.EncodingTypeBitstreamSize))
+
+	rpc := stream.Copy()
+
+	stream.OffsetBitPosition(int(d.RawPixelCodesBitstreamSize))
+
+	pcd := stream.Copy()
 
 	d.calculateCells()
 
@@ -172,7 +180,9 @@ func (d *Direction) decodeFrameHeaders(stream *bitstream.BitStream) error {
 	maxY := baseMaxy
 
 	for frameIdx := uint32(0); frameIdx < d.dcc.framesPerDirection; frameIdx++ {
-		d.frames[frameIdx].direction = d
+		d.frames[frameIdx] = &Frame{
+			direction: d,
+		}
 
 		if err := d.frames[frameIdx].decodeFrameHeader(stream); err != nil {
 			const fmtErr = "frame index %d decode"
@@ -228,8 +238,7 @@ func (d *Direction) decodePaletteEntries(stream *bitstream.BitStream) (err error
 		if valid, err := stream.Next(1).Bits().AsBool(); err != nil {
 			return err
 		} else if !valid {
-			fmtErr := "invalid palette entry at index %v"
-			return fmt.Errorf(fmtErr, idx)
+			continue
 		}
 
 		d.PaletteEntries[paletteEntryCount] = byte(idx)
@@ -605,20 +614,24 @@ func (d *Direction) verify(
 	return nil
 }
 
-func (d *Direction) ColorIndexAt(x, y int) uint8 {
-	panic("implement me")
-}
-
-func (d *Direction) ColorModel() color.Model {
-	panic("implement me")
-}
-
 func (d *Direction) Bounds() image.Rectangle {
 	return d.Box.Bounds()
 }
 
-func (d *Direction) At(x, y int) color.Color {
-	panic("implement me")
+func (d *Direction) Frame(n int) *Frame {
+	if n >= len(d.frames) || n < 0 {
+		return nil
+	}
+
+	return d.frames[n]
+}
+
+func (d *Direction) Frames() []*Frame {
+	if d.frames == nil {
+		return nil
+	}
+
+	return append([]*Frame{}, d.frames...)
 }
 
 func crazyLookup(idx uint32, err error) (int, error) {
