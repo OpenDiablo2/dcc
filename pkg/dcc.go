@@ -41,7 +41,7 @@ type DCC struct {
 	framesPerDirection uint32
 	directions         []*Direction
 	palette            color.Palette
-	stream *bitstream.BitStream
+	stream *bitstream.Reader
 	dirty              bool // when anything is changed this flag is set, causes recalculation
 }
 
@@ -58,7 +58,7 @@ func (d *DCC) FromBytes(data []byte) (_ *DCC, err error) {
 		d.init()
 	}
 
-	stream := bitstream.FromBytes(data...)
+	stream := bitstream.NewReader().FromBytes(data...)
 
 	d.stream = stream
 
@@ -81,7 +81,7 @@ func (d *DCC) Directions() []*Direction {
 	return append([]*Direction{}, d.directions...)
 }
 
-func (d *DCC) Decode(stream *bitstream.BitStream) error {
+func (d *DCC) Decode(stream *bitstream.Reader) error {
 	if err := d.decodeHeader(stream); err != nil {
 		return fmt.Errorf("error decoding dcc header, %v", err)
 	}
@@ -99,7 +99,7 @@ func (d *DCC) Decode(stream *bitstream.BitStream) error {
 	return nil
 }
 
-func (d *DCC) decodeHeader(stream *bitstream.BitStream) (err error) {
+func (d *DCC) decodeHeader(stream *bitstream.Reader) (err error) {
 	if signature, err := stream.Next(signatureBits).Bits().AsByte(); err != nil {
 		return err
 	} else if signature != FileSignature {
@@ -140,7 +140,7 @@ func (d *DCC) decodeHeader(stream *bitstream.BitStream) (err error) {
 	return nil
 }
 
-func (d *DCC) decodeBody(stream *bitstream.BitStream) error {
+func (d *DCC) decodeBody(stream *bitstream.Reader) error {
 	// decode each direction
 	for idx := 0; idx < len(d.directions); idx++ {
 		offset, err := stream.Next(directionOffsetBits).Bits().AsUInt32()

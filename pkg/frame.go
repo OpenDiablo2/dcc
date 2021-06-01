@@ -26,7 +26,7 @@ type Frame struct {
 	valid                 bool
 }
 
-func (f *Frame) decodeFrameHeader(stream *bitstream.BitStream) (err error) {
+func (f *Frame) decodeFrameHeader(stream *bitstream.Reader) (err error) {
 	_, err = stream.Next(f.direction.Variable0Bits).Bits().AsUInt32()
 	if err != nil {
 		return err
@@ -162,11 +162,17 @@ func (f *Frame) recalculateCells() {
 }
 
 func (f *Frame) ColorIndexAt(x, y int) uint8 {
-	panic("implement me")
+	pixelIndex := x + (y * f.Width)
+
+	if pixelIndex >= len(f.PixelData) {
+		pixelIndex = 0
+	}
+
+	return f.PixelData[pixelIndex]
 }
 
 func (f *Frame) ColorModel() color.Model {
-	panic("implement me")
+	return color.RGBAModel
 }
 
 func (f *Frame) Bounds() image.Rectangle {
@@ -174,5 +180,5 @@ func (f *Frame) Bounds() image.Rectangle {
 }
 
 func (f *Frame) At(x, y int) color.Color {
-	panic("implement me")
+	return f.direction.dcc.palette[f.ColorIndexAt(x, y)]
 }

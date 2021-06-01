@@ -51,7 +51,7 @@ type Direction struct {
 	PixelBuffer                []PixelBufferEntry
 }
 
-func (d *Direction) decode(stream *bitstream.BitStream) (err error) {
+func (d *Direction) decode(stream *bitstream.Reader) (err error) {
 	d.frames = make([]*Frame, d.dcc.framesPerDirection)
 
 	if err = d.decodeHeader(stream); err != nil {
@@ -65,7 +65,7 @@ func (d *Direction) decode(stream *bitstream.BitStream) (err error) {
 	return nil
 }
 
-func (d *Direction) decodeHeader(stream *bitstream.BitStream) (err error) {
+func (d *Direction) decodeHeader(stream *bitstream.Reader) (err error) {
 	if val, err := stream.Next(32).Bits().AsUInt32(); err != nil {
 		return err
 	} else {
@@ -109,7 +109,7 @@ func (d *Direction) decodeHeader(stream *bitstream.BitStream) (err error) {
 	return nil
 }
 
-func (d *Direction) decodeBody(stream *bitstream.BitStream) (err error) {
+func (d *Direction) decodeBody(stream *bitstream.Reader) (err error) {
 	if err = d.decodeFrameHeaders(stream); err != nil {
 		return err
 	}
@@ -173,7 +173,7 @@ func (d *Direction) decodeBody(stream *bitstream.BitStream) (err error) {
 	return nil
 }
 
-func (d *Direction) decodeFrameHeaders(stream *bitstream.BitStream) error {
+func (d *Direction) decodeFrameHeaders(stream *bitstream.Reader) error {
 	minX := baseMinx
 	minY := baseMiny
 	maxX := baseMaxx
@@ -205,7 +205,7 @@ func (d *Direction) decodeFrameHeaders(stream *bitstream.BitStream) error {
 	return nil
 }
 
-func (d *Direction) decodeCompressionFlags(stream *bitstream.BitStream) (err error) {
+func (d *Direction) decodeCompressionFlags(stream *bitstream.Reader) (err error) {
 	if (d.CompressionFlags & EqualCellsCompression) > 0 {
 		d.EqualCellsBitstreamSize, err = stream.Next(streamSizeBits).Bits().AsUInt32()
 		if err != nil {
@@ -233,7 +233,7 @@ func (d *Direction) decodeCompressionFlags(stream *bitstream.BitStream) (err err
 	return nil
 }
 
-func (d *Direction) decodePaletteEntries(stream *bitstream.BitStream) (err error) {
+func (d *Direction) decodePaletteEntries(stream *bitstream.Reader) (err error) {
 	for paletteEntryCount, idx := 0, 0; idx < 256; idx++ {
 		if valid, err := stream.Next(1).Bits().AsBool(); err != nil {
 			return err
@@ -307,7 +307,7 @@ func (d *Direction) calculateCells() {
 	}
 }
 
-func (d *Direction) fillPixelBuffer(pcd, ec, pm, et, rp *bitstream.BitStream) (err error) {
+func (d *Direction) fillPixelBuffer(pcd, ec, pm, et, rp *bitstream.Reader) (err error) {
 	var pixelMaskLookup = []int{0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4}
 
 	lastPixel := uint32(0)
@@ -472,7 +472,7 @@ func (d *Direction) fillPixelBuffer(pcd, ec, pm, et, rp *bitstream.BitStream) (e
 	return nil
 }
 
-func (d *Direction) generateFrames(pcd *bitstream.BitStream) (err error) {
+func (d *Direction) generateFrames(pcd *bitstream.Reader) (err error) {
 	for _, cell := range d.Cells {
 		cell.LastWidth = -1
 		cell.LastHeight = -1
@@ -494,7 +494,7 @@ func (d *Direction) generateFrames(pcd *bitstream.BitStream) (err error) {
 	return nil
 }
 
-func (d *Direction) generateFrame(frameIndex int, frame *Frame, pcd *bitstream.BitStream) error {
+func (d *Direction) generateFrame(frameIndex int, frame *Frame, pcd *bitstream.Reader) error {
 	pbIdx := 0
 
 	frame.PixelData = make([]byte, d.Box.Dx() * d.Box.Dy())
@@ -588,11 +588,11 @@ func (d *Direction) verify(
 	equalCellsBitstream,
 	pixelMaskBitstream,
 	encodingTypeBitstream,
-	rawPixelCodesBitstream *bitstream.BitStream,
+	rawPixelCodesBitstream *bitstream.Reader,
 ) error {
 	steps := []struct{
 		name string
-		stream *bitstream.BitStream
+		stream *bitstream.Reader
 		expectedBitsRead int
 	}{
 		{"EqualCells", equalCellsBitstream, int(d.EqualCellsBitstreamSize)},
