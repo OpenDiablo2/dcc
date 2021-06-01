@@ -5,9 +5,11 @@ import (
 	"io/ioutil"
 	"os"
 
-	"github.com/AllenDang/giu"
+	"github.com/OpenDiablo2/HellSpawner/hscommon"
+	"github.com/ianling/giu"
 
 	lib "github.com/gravestench/dcc/pkg"
+	"github.com/gravestench/dcc/pkg/giuwidget"
 )
 
 const (
@@ -42,7 +44,13 @@ func main() {
 	firstFrame := dcc.Direction(0).Frame(0)
 	window := giu.NewMasterWindow(title, firstFrame.Width, firstFrame.Height, windowFlags, nil)
 
-	window.Run(render)
+	tl := hscommon.NewTextureLoader()
+
+	widget := giuwidget.Create(tl, nil, "dccviewer", dcc)
+
+	window.Run(func() {
+		widget.Build()
+	})
 }
 
 func printUsage() {

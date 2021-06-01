@@ -187,6 +187,10 @@ func (d *DCC) SetPalette(p color.Palette) {
 	d.palette = dst
 }
 
+func (d *DCC) Palette() color.Palette {
+	return d.palette
+}
+
 func (d *DCC) Encode() ([]byte, error) {
 	return nil, errors.New("not yet implemented")
 }
