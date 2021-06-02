@@ -23,7 +23,7 @@ const (
 	baseMaxy = -100000
 )
 
-const cellsPerRow = 4
+const cellSize = 4
 
 // Direction represents a Direction file.
 type Direction struct {
@@ -250,8 +250,8 @@ func (d *Direction) decodePaletteEntries(stream *bitstream.Reader) (err error) {
 
 func (d *Direction) calculateCells() {
 	// Calculate the number of vertical and horizontal cells we need
-	d.HorizontalCellCount = 1 + (d.Box.Dx()-1)/cellsPerRow
-	d.VerticalCellCount = 1 + (d.Box.Dy()-1)/cellsPerRow
+	d.HorizontalCellCount = 1 + (d.Box.Dx()-1)/cellSize
+	d.VerticalCellCount = 1 + (d.Box.Dy()-1)/cellSize
 
 	// Calculate the cell widths
 	cellWidths := make([]int, d.HorizontalCellCount)
@@ -339,8 +339,8 @@ func (d *Direction) fillPixelBuffer(pcd, ec, pm, et, rp *bitstream.Reader) (err 
 	for _, frame := range d.frames {
 		frameIndex++
 
-		originCellX := (frame.Box.Min.X - d.Box.Min.X) / cellsPerRow
-		originCellY := (frame.Box.Min.Y - d.Box.Min.Y) / cellsPerRow
+		originCellX := (frame.Box.Min.X - d.Box.Min.X) / cellSize
+		originCellY := (frame.Box.Min.Y - d.Box.Min.Y) / cellSize
 
 		for cellY := 0; cellY < frame.VerticalCellCount; cellY++ {
 			currentCellY := cellY + originCellY
@@ -500,8 +500,8 @@ func (d *Direction) generateFrame(frameIndex int, frame *Frame, pcd *bitstream.R
 	frame.PixelData = make([]byte, d.Box.Dx() * d.Box.Dy())
 
 	for cellIdx, cell := range frame.Cells {
-		cellX := cell.XOffset / cellsPerRow
-		cellY := cell.YOffset / cellsPerRow
+		cellX := cell.XOffset / cellSize
+		cellY := cell.YOffset / cellSize
 		cellIndex := cellX + (cellY * d.HorizontalCellCount)
 		bufferCell := d.Cells[cellIndex]
 		pbe := d.PixelBuffer[pbIdx]
