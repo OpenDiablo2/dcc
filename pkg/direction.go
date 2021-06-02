@@ -133,7 +133,7 @@ func (d *Direction) decodeBody(stream *bitstream.Reader) (err error) {
 	// will be located at byte 23, bit offset 6!
 	ec := stream.Copy()
 
-	stream.OffsetPosition(int(d.EqualCellsBitstreamSize))
+	stream.OffsetBitPosition(int(d.EqualCellsBitstreamSize))
 
 	pm := stream.Copy()
 
