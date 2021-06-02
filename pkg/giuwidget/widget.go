@@ -62,15 +62,16 @@ func (p *widget) Build() {
 		log.Print(err)
 	}
 
-	var widget *giu.ImageWidget
+	var frameImage *giu.ImageWidget
+
 	if viewerState.textures == nil || len(viewerState.textures) <= int(frameIdx) || viewerState.textures[frameIdx] == nil {
-		widget = giu.Image(nil).Size(imageW, imageH)
+		frameImage = giu.Image(nil).Size(imageW, imageH)
 	} else {
 		bw := p.dcc.Direction(dirIdx).Box.Dx()
 		bh := p.dcc.Direction(dirIdx).Box.Dy()
 		w := float32(uint32(bw) * imageScale)
 		h := float32(uint32(bh) * imageScale)
-		widget = giu.Image(viewerState.textures[textureIdx]).Size(w, h)
+		frameImage = giu.Image(viewerState.textures[textureIdx]).Size(w, h)
 	}
 
 	numDirections := len(p.dcc.Directions())
@@ -96,6 +97,6 @@ func (p *widget) Build() {
 			imgui.EndGroup()
 		}),
 		giu.Separator(),
-		widget,
+		frameImage,
 	}.Build()
 }
