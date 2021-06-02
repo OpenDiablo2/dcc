@@ -113,6 +113,7 @@ func (f *Frame) recalculateCells() {
 			f.VerticalCellCount--
 		}
 	}
+
 	// Calculate the cell widths and heights
 	cellWidths := make([]int, f.HorizontalCellCount)
 	if f.HorizontalCellCount == 1 {
@@ -169,6 +170,7 @@ func (f *Frame) ColorIndexAt(x, y int) uint8 {
 	}
 
 	return f.PixelData[pixelIndex]
+	// return f.direction.PaletteEntries[f.PixelData[pixelIndex]]
 }
 
 func (f *Frame) ColorModel() color.Model {
