@@ -41,15 +41,16 @@ func main() {
 		return
 	}
 
-	firstFrame := dcc.Direction(0).Frame(0)
-	window := giu.NewMasterWindow(title, firstFrame.Width, firstFrame.Height, windowFlags, nil)
+	window := giu.NewMasterWindow(title, defaultWidth, defaultHeight, windowFlags, nil)
 
 	tl := hscommon.NewTextureLoader()
 
 	widget := giuwidget.Create(tl, nil, "dccviewer", dcc)
 
 	window.Run(func() {
-		widget.Build()
+		tl.ResumeLoadingTextures()
+		tl.ProcessTextureLoadRequests()
+		giu.SingleWindow("dcc viewer").Layout(widget)
 	})
 }
 
