@@ -314,13 +314,13 @@ func (d *Direction) fillPixelBuffer(pcd, ec, pm, et, rp *bitstream.Reader) (err 
 	maxCellX := 0
 	maxCellY := 0
 
-	for _, frame := range d.frames {
-		if frame == nil {
+	for idx := range d.frames {
+		if d.frames[idx] == nil {
 			continue
 		}
 
-		maxCellX += frame.HorizontalCellCount
-		maxCellY += frame.VerticalCellCount
+		maxCellX += d.frames[idx].HorizontalCellCount
+		maxCellY += d.frames[idx].VerticalCellCount
 	}
 
 	d.PixelBuffer = make([]PixelBufferEntry, maxCellX*maxCellY)
