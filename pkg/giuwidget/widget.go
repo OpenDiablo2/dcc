@@ -48,7 +48,7 @@ func (p *widget) Build() {
 	viewerState := p.getState()
 
 	imageScale := uint32(viewerState.controls.scale)
-	dirIdx := int(viewerState.controls.direction)
+	dirIdx := dirLookup(int(viewerState.controls.direction), len(p.dcc.Directions()))
 	frameIdx := viewerState.controls.frame
 
 	textureIdx := dirIdx*len(p.dcc.Direction(dirIdx).Frames()) + int(frameIdx)
@@ -99,4 +99,25 @@ func (p *widget) Build() {
 		giu.Separator(),
 		frameImage,
 	}.Build()
+}
+
+func dirLookup(dir, numDirs int) int {
+	d4 := []int{0, 1, 2, 3}
+	d8 := []int{0, 5, 1, 6, 2, 7, 3, 4}
+	d16 := []int{0, 9, 5, 10, 1, 11, 6, 12, 2, 13, 7, 14, 3, 15, 4, 8}
+
+	lookup := []int{0}
+
+	switch numDirs {
+	case 4:
+		lookup = d4
+	case 8:
+		lookup = d8
+	case 16:
+		lookup = d16
+	default:
+		dir = 0
+	}
+
+	return lookup[dir]
 }
