@@ -3,8 +3,9 @@ package pkg
 import (
 	"errors"
 	"fmt"
-	"github.com/gravestench/bitstream"
 	"image"
+
+	"github.com/gravestench/bitstream"
 )
 
 const streamSizeBits = 20 // num bits for representing a substream
@@ -12,8 +13,8 @@ const streamSizeBits = 20 // num bits for representing a substream
 type CompressionFlag = int
 
 const (
-	RawPixelCompression CompressionFlag = 1 << iota
-	EqualCellsCompression
+	rawPixelCompression CompressionFlag = 1 << iota
+	equalCellsCompression
 )
 
 const (
@@ -23,7 +24,9 @@ const (
 	baseMaxy = -100000
 )
 
-const cellSize = 4
+const (
+	cellSize = 4
+)
 
 // Direction represents a Direction file.
 type Direction struct {
@@ -48,17 +51,19 @@ type Direction struct {
 	PixelData                  []byte
 	HorizontalCellCount        int
 	VerticalCellCount          int
-	PixelBuffer                []PixelBufferEntry
+	PixelBuffer                PixelBuffer
 }
 
 func (d *Direction) decode(stream *bitstream.Reader) (err error) {
 	d.frames = make([]*Frame, d.dcc.framesPerDirection)
 
-	if err = d.decodeHeader(stream); err != nil {
+	err = d.decodeHeader(stream)
+	if err != nil {
 		return err
 	}
 
-	if err = d.decodeBody(stream); err != nil {
+	err = d.decodeBody(stream)
+	if err != nil {
 		return err
 	}
 
@@ -66,47 +71,35 @@ func (d *Direction) decode(stream *bitstream.Reader) (err error) {
 }
 
 func (d *Direction) decodeHeader(stream *bitstream.Reader) (err error) {
-	if val, err := stream.Next(32).Bits().AsUInt32(); err != nil {
-		return err
-	} else {
-		d.OutSizeCoded = int(val)
-	}
+	const (
+		outSizeCodedBits     = 32
+		compressionFlagsBits = 2
+		variable0Bits        = 4
+		widthBits            = 4
+		heightBits           = 4
+		xOffsetBits          = 4
+		yOffsetBits          = 4
+		optionalDataBits     = 4
+		codedBytesBits       = 4
+	)
 
-	if val, err := stream.Next(2).Bits().AsUInt32(); err != nil {
-		return err
-	} else {
-		d.CompressionFlags = int(val)
-	}
+	var val uint32
 
-	if d.Variable0Bits, err = crazyLookup(stream.Next(4).Bits().AsUInt32()); err != nil {
-		return err
-	}
+	val, _ = stream.Next(outSizeCodedBits).Bits().AsUInt32()
+	d.OutSizeCoded = int(val)
 
-	if d.WidthBits, err = crazyLookup(stream.Next(4).Bits().AsUInt32()); err != nil {
-		return err
-	}
+	val, _ = stream.Next(compressionFlagsBits).Bits().AsUInt32()
+	d.CompressionFlags = int(val)
 
-	if d.HeightBits, err = crazyLookup(stream.Next(4).Bits().AsUInt32()); err != nil {
-		return err
-	}
+	d.Variable0Bits, _ = crazyLookup(stream.Next(variable0Bits).Bits().AsUInt32())
+	d.WidthBits, _ = crazyLookup(stream.Next(widthBits).Bits().AsUInt32())
+	d.HeightBits, _ = crazyLookup(stream.Next(heightBits).Bits().AsUInt32())
+	d.XOffsetBits, _ = crazyLookup(stream.Next(xOffsetBits).Bits().AsUInt32())
+	d.YOffsetBits, _ = crazyLookup(stream.Next(yOffsetBits).Bits().AsUInt32())
+	d.OptionalDataBits, _ = crazyLookup(stream.Next(optionalDataBits).Bits().AsUInt32())
+	d.CodedBytesBits, err = crazyLookup(stream.Next(codedBytesBits).Bits().AsUInt32())
 
-	if d.XOffsetBits, err = crazyLookup(stream.Next(4).Bits().AsUInt32()); err != nil {
-		return err
-	}
-
-	if d.YOffsetBits, err = crazyLookup(stream.Next(4).Bits().AsUInt32()); err != nil {
-		return err
-	}
-
-	if d.OptionalDataBits, err = crazyLookup(stream.Next(4).Bits().AsUInt32()); err != nil {
-		return err
-	}
-
-	if d.CodedBytesBits, err = crazyLookup(stream.Next(4).Bits().AsUInt32()); err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 func (d *Direction) decodeBody(stream *bitstream.Reader) (err error) {
@@ -132,24 +125,14 @@ func (d *Direction) decodeBody(stream *bitstream.Reader) (err error) {
 	// the EqualCellsBitstreamSize is 20 bytes, then the next bit stream
 	// will be located at byte 23, bit offset 6!
 	ec := stream.Copy()
+	pm := stream.OffsetBitPosition(int(d.EqualCellsBitstreamSize)).Copy()
+	et := stream.OffsetBitPosition(int(d.PixelMaskBitstreamSize)).Copy()
+	rpc := stream.OffsetBitPosition(int(d.EncodingTypeBitstreamSize)).Copy()
+	pcd := stream.OffsetBitPosition(int(d.RawPixelCodesBitstreamSize)).Copy()
 
-	stream.OffsetBitPosition(int(d.EqualCellsBitstreamSize))
-
-	pm := stream.Copy()
-
-	stream.OffsetBitPosition(int(d.PixelMaskBitstreamSize))
-
-	et := stream.Copy()
-
-	stream.OffsetBitPosition(int(d.EncodingTypeBitstreamSize))
-
-	rpc := stream.Copy()
-
-	stream.OffsetBitPosition(int(d.RawPixelCodesBitstreamSize))
-
-	pcd := stream.Copy()
-
-	d.calculateCells()
+	if err = d.calculateCells(); err != nil {
+		return err
+	}
 
 	// Fill in the pixel buffer
 	if err = d.fillPixelBuffer(pcd, ec, pm, et, rpc); err != nil {
@@ -166,7 +149,9 @@ func (d *Direction) decodeBody(stream *bitstream.Reader) (err error) {
 	d.PixelBuffer = nil
 
 	// Verify that everything we expected to read was actually read (sanity check)...
-	d.verify(ec, pm, et, rpc)
+	if err = d.verify(ec, pm, et, rpc); err != nil {
+		return err
+	}
 
 	stream.OffsetBitPosition(pcd.BitsRead())
 
@@ -206,27 +191,19 @@ func (d *Direction) decodeFrameHeaders(stream *bitstream.Reader) error {
 }
 
 func (d *Direction) decodeCompressionFlags(stream *bitstream.Reader) (err error) {
-	if (d.CompressionFlags & EqualCellsCompression) > 0 {
-		d.EqualCellsBitstreamSize, err = stream.Next(streamSizeBits).Bits().AsUInt32()
-		if err != nil {
-			return err
-		}
+	// to reduce noise, we only return the last stream error, otherwise throw them away
+	if (d.CompressionFlags & equalCellsCompression) > 0 {
+		d.EqualCellsBitstreamSize, _ = stream.Next(streamSizeBits).Bits().AsUInt32()
 	}
 
-	d.PixelMaskBitstreamSize, err = stream.Next(streamSizeBits).Bits().AsUInt32()
-	if err != nil {
-		return err
-	}
+	d.PixelMaskBitstreamSize, _ = stream.Next(streamSizeBits).Bits().AsUInt32()
 
-	if (d.CompressionFlags & RawPixelCompression) > 0 {
-		d.EncodingTypeBitstreamSize, err = stream.Next(streamSizeBits).Bits().AsUInt32()
-		if err != nil {
-			return err
-		}
-
+	if (d.CompressionFlags & rawPixelCompression) > 0 {
+		d.EncodingTypeBitstreamSize, _ = stream.Next(streamSizeBits).Bits().AsUInt32()
 		d.RawPixelCodesBitstreamSize, err = stream.Next(streamSizeBits).Bits().AsUInt32()
+
 		if err != nil {
-			return err
+			return fmt.Errorf("stream error, %w", err)
 		}
 	}
 
@@ -248,7 +225,7 @@ func (d *Direction) decodePaletteEntries(stream *bitstream.Reader) (err error) {
 	return nil
 }
 
-func (d *Direction) calculateCells() {
+func (d *Direction) calculateCells() error {
 	// Calculate the number of vertical and horizontal cells we need
 	d.HorizontalCellCount = 1 + (d.Box.Dx()-1)/cellSize
 	d.VerticalCellCount = 1 + (d.Box.Dy()-1)/cellSize
@@ -302,10 +279,18 @@ func (d *Direction) calculateCells() {
 	}
 
 	// Calculate the cells for each of the frames
-	for _, frame := range d.frames {
-		frame.recalculateCells()
+	for idx, frame := range d.frames {
+		if err := frame.recalculateCells(); err != nil {
+			return fmt.Errorf("could not recalculate cells for frame %d, %w", idx, err)
+		}
 	}
+
+	return nil
 }
+
+const (
+	none = -1
+)
 
 func (d *Direction) fillPixelBuffer(pcd, ec, pm, et, rp *bitstream.Reader) (err error) {
 	var pixelMaskLookup = []int{0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4}
@@ -478,12 +463,12 @@ func (d *Direction) generateFrames(pcd *bitstream.Reader) (err error) {
 		cell.LastHeight = -1
 	}
 
-	d.PixelData = make([]byte, d.Box.Dx() * d.Box.Dy())
+	d.PixelData = make([]byte, d.Box.Dx()*d.Box.Dy())
 
-	for frameIndex, frame := range d.frames {
-		if err = d.generateFrame(frameIndex, frame, pcd); err != nil {
+	for idx := range d.frames {
+		if err = d.generateFrame(idx, pcd); err != nil {
 			const fmtErr = "generating frame with index %v, %v"
-			return fmt.Errorf(fmtErr, frameIndex, err)
+			return fmt.Errorf(fmtErr, idx, err)
 		}
 	}
 
@@ -494,19 +479,21 @@ func (d *Direction) generateFrames(pcd *bitstream.Reader) (err error) {
 	return nil
 }
 
-func (d *Direction) generateFrame(frameIndex int, frame *Frame, pcd *bitstream.Reader) error {
+func (d *Direction) generateFrame(idx int, pcd *bitstream.Reader) error {
 	pbIdx := 0
 
-	frame.PixelData = make([]byte, d.Box.Dx() * d.Box.Dy())
+	d.frames[idx].PixelData = make([]byte, d.Box.Dx()*d.Box.Dy())
 
-	for cellIdx, cell := range frame.Cells {
+	for cellIdx := range d.frames[idx].Cells {
+		cell := &d.frames[idx].Cells[cellIdx]
+
 		cellX := cell.XOffset / cellSize
 		cellY := cell.YOffset / cellSize
 		cellIndex := cellX + (cellY * d.HorizontalCellCount)
 		bufferCell := d.Cells[cellIndex]
 		pbe := d.PixelBuffer[pbIdx]
 
-		if (pbe.Frame != frameIndex) || (pbe.FrameCellIndex != cellIdx) {
+		if (pbe.Frame != idx) || (pbe.FrameCellIndex != cellIdx) {
 			// This buffer cell has an EqualCell bit set to 1, so copy the frame cell or clear it
 			if (cell.Width != bufferCell.LastWidth) || (cell.Height != bufferCell.LastHeight) {
 				// Different sizes
@@ -531,7 +518,7 @@ func (d *Direction) generateFrame(frameIndex int, frame *Frame, pcd *bitstream.R
 				for fy := 0; fy < cell.Height; fy++ {
 					for fx := 0; fx < cell.Width; fx++ {
 						// blit(cell->bmp, frm_bmp, 0, 0, cell->x0, cell->y0, cell->w, cell->h );
-						frame.PixelData[fx+cell.XOffset+((fy+cell.YOffset)*d.Box.Dx())] = d.PixelData[cell.XOffset+fx+((cell.YOffset+fy)*d.Box.Dx())]
+						d.frames[idx].PixelData[fx+cell.XOffset+((fy+cell.YOffset)*d.Box.Dx())] = d.PixelData[cell.XOffset+fx+((cell.YOffset+fy)*d.Box.Dx())]
 					}
 				}
 			}
@@ -554,7 +541,7 @@ func (d *Direction) generateFrame(frameIndex int, frame *Frame, pcd *bitstream.R
 						paletteIndex, err := pcd.Next(bitsToRead).Bits().AsUInt32()
 						if err != nil {
 							const fmtErr = "reading palette index at coord(%v, %v)"
-							return fmt.Errorf(fmtErr, frameIndex, x, y)
+							return fmt.Errorf(fmtErr, idx, x, y)
 						}
 
 						d.PixelData[x+cell.XOffset+((y+cell.YOffset)*d.Box.Dx())] = pbe.Value[paletteIndex]
@@ -566,7 +553,7 @@ func (d *Direction) generateFrame(frameIndex int, frame *Frame, pcd *bitstream.R
 			for fy := 0; fy < cell.Height; fy++ {
 				for fx := 0; fx < cell.Width; fx++ {
 					// blit(cell->bmp, frm_bmp, 0, 0, cell->x0, cell->y0, cell->w, cell->h );
-					frame.PixelData[fx+cell.XOffset+((fy+cell.YOffset)*d.Box.Dx())] = d.PixelData[fx+cell.XOffset+((fy+cell.YOffset)*d.Box.Dx())]
+					d.frames[idx].PixelData[fx+cell.XOffset+((fy+cell.YOffset)*d.Box.Dx())] = d.PixelData[fx+cell.XOffset+((fy+cell.YOffset)*d.Box.Dx())]
 				}
 			}
 			pbIdx++
@@ -579,7 +566,7 @@ func (d *Direction) generateFrame(frameIndex int, frame *Frame, pcd *bitstream.R
 	}
 
 	// Free up the stuff we no longer need
-	frame.Cells = nil
+	d.frames[idx].Cells = nil
 
 	return nil
 }
@@ -590,9 +577,9 @@ func (d *Direction) verify(
 	encodingTypeBitstream,
 	rawPixelCodesBitstream *bitstream.Reader,
 ) error {
-	steps := []struct{
-		name string
-		stream *bitstream.Reader
+	steps := []struct {
+		name             string
+		stream           *bitstream.Reader
 		expectedBitsRead int
 	}{
 		{"EqualCells", equalCellsBitstream, int(d.EqualCellsBitstreamSize)},

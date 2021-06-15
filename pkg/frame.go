@@ -1,10 +1,10 @@
 package pkg
 
 import (
+	"errors"
+	"fmt"
 	"github.com/gravestench/bitstream"
 	"image"
-	"image/color"
-	"log"
 )
 
 var _ image.PalettedImage = &Frame{}
@@ -27,160 +27,160 @@ type Frame struct {
 }
 
 func (f *Frame) decodeFrameHeader(stream *bitstream.Reader) (err error) {
-	_, err = stream.Next(f.direction.Variable0Bits).Bits().AsUInt32()
+	// we dont use var0 width bits
+	_, _ = stream.Next(f.direction.Variable0Bits).Bits().AsUInt32()
+
+	width, _ := stream.Next(f.direction.WidthBits).Bits().AsUInt32()
+	height, _ := stream.Next(f.direction.HeightBits).Bits().AsUInt32()
+	f.Width, f.Height = int(width), int(height)
+
+	f.XOffset, _ = stream.Next(f.direction.XOffsetBits).Bits().AsInt()
+	f.YOffset, _ = stream.Next(f.direction.YOffsetBits).Bits().AsInt()
+
+	numOptionBytes, _ := stream.Next(f.direction.OptionalDataBits).Bits().AsUInt32()
+	f.NumberOfOptionalBytes = int(numOptionBytes)
+
+	codedBytes, _ := stream.Next(f.direction.CodedBytesBits).Bits().AsUInt32()
+	f.NumberOfCodedBytes = int(codedBytes)
+
+	// we will finally use the last returned stream error.
+	f.FrameIsBottomUp, err = stream.Next(1).Bits().AsBool()
 	if err != nil {
-		return err
-	}
-
-	if width, err := stream.Next(f.direction.WidthBits).Bits().AsUInt32(); err != nil {
-		return err
-	} else {
-		f.Width = int(width)
-	}
-
-	if height, err := stream.Next(f.direction.HeightBits).Bits().AsUInt32(); err != nil {
-		return err
-	} else {
-		f.Height = int(height)
-	}
-
-	f.XOffset, err = stream.Next(f.direction.XOffsetBits).Bits().AsInt()
-	if err != nil {
-		return err
-	}
-
-	f.YOffset, err = stream.Next(f.direction.YOffsetBits).Bits().AsInt()
-	if err != nil {
-		return err
-	}
-
-	if numOptionBytes, err := stream.Next(f.direction.OptionalDataBits).Bits().AsUInt32(); err != nil {
-		return err
-	} else {
-		f.NumberOfOptionalBytes = int(numOptionBytes)
-	}
-
-	if codedBytes, err := stream.Next(f.direction.CodedBytesBits).Bits().AsUInt32(); err != nil {
-		return err
-	} else {
-		f.NumberOfCodedBytes = int(codedBytes)
-	}
-
-	if f.FrameIsBottomUp, err = stream.Next(1).Bits().AsBool(); err != nil {
-		return err
+		return fmt.Errorf("stream error, %w", err)
 	}
 
 	if f.FrameIsBottomUp {
-		log.Panic("Bottom up frames are not implemented.")
-	} else {
-		min := image.Point{f.XOffset, f.YOffset - f.Height + 1}
-		max := image.Point{min.X + f.Width, min.Y + f.Height}
-		f.Box = image.Rectangle{min, max}
+		return errors.New("bottom up frames are not implemented")
 	}
+
+	min := image.Point{X: f.XOffset, Y: f.YOffset - f.Height + 1}
+	max := image.Point{X: min.X + f.Width, Y: min.Y + f.Height}
+	f.Box = image.Rectangle{Min: min, Max: max}
 
 	f.valid = true
 
 	return nil
 }
 
-func (f *Frame) recalculateCells() {
-	// nolint:gomnd // constant
-	var w = 4 - ((f.Box.Min.X - f.direction.Box.Min.X) % 4) // Width of the first column (in pixels)
+func (f *Frame) firstCellDimensions() (int, int) {
+	// Width, height of the first cell
+	w := cellSize - ((f.Box.Min.X - f.direction.Box.Min.X) % cellSize)
+	h := cellSize - ((f.Box.Min.Y - f.direction.Box.Min.Y) % cellSize)
 
-	if (f.Width - w) <= 1 {
+	return w, h
+}
+
+func (f *Frame) calcCellCounts() {
+	const magic2 = 2
+
+	firstW, firstH := f.firstCellDimensions()
+
+	remainderW := f.Width - firstW - 1
+	remainderH := f.Height - firstH - 1
+
+	f.HorizontalCellCount = magic2 + (remainderW / cellSize)
+	if (remainderW % cellSize) == 0 {
+		f.HorizontalCellCount--
+	}
+
+	f.VerticalCellCount = magic2 + (remainderH / cellSize)
+	if (remainderH % cellSize) == 0 {
+		f.VerticalCellCount--
+	}
+
+	if f.HorizontalCellCount <= 0 {
 		f.HorizontalCellCount = 1
-	} else {
-		tmp := f.Width - w - 1
-		f.HorizontalCellCount = 2 + (tmp / 4) //nolint:gomnd // magic math
-
-		// nolint:gomnd // constant
-		if (tmp % 4) == 0 {
-			f.HorizontalCellCount--
-		}
 	}
 
-	// Height of the first column (in pixels)
-	h := 4 - ((f.Box.Min.Y - f.direction.Box.Min.Y) % 4) //nolint:gomnd // data decode
-
-	if (f.Height - h) <= 1 {
+	if f.VerticalCellCount <= 0 {
 		f.VerticalCellCount = 1
-	} else {
-		tmp := f.Height - h - 1
-		f.VerticalCellCount = 2 + (tmp / 4) //nolint:gomnd // data decode
-
-		// nolint:gomnd // constant
-		if (tmp % 4) == 0 {
-			f.VerticalCellCount--
-		}
 	}
+}
 
-	// Calculate the cell widths and heights
+func (f *Frame) calcCellWidths() []int {
+	const magic2 = 2
+
+	firstW, _ := f.firstCellDimensions()
+
 	cellWidths := make([]int, f.HorizontalCellCount)
-	if f.HorizontalCellCount == 1 {
-		cellWidths[0] = f.Width
-	} else {
-		cellWidths[0] = w
+	cellWidths[0] = f.Width
+
+	if f.HorizontalCellCount > 1 {
+		cellWidths[0] = firstW
 		for i := 1; i < (f.HorizontalCellCount - 1); i++ {
-			cellWidths[i] = 4
+			cellWidths[i] = cellSize
 		}
 
-		// nolint:gomnd // constants
-		cellWidths[f.HorizontalCellCount-1] = f.Width - w - (4 * (f.HorizontalCellCount - 2))
+		cellWidths[f.HorizontalCellCount-1] = f.Width - firstW - (cellSize * (f.HorizontalCellCount - magic2))
 	}
+
+	return cellWidths
+}
+
+func (f *Frame) calcCellHeights() []int {
+	const magic2 = 2
+
+	_, firstH := f.firstCellDimensions()
 
 	cellHeights := make([]int, f.VerticalCellCount)
-	if f.VerticalCellCount == 1 {
-		cellHeights[0] = f.Height
-	} else {
-		cellHeights[0] = h
+	cellHeights[0] = f.Height
+
+	if f.VerticalCellCount > 1 {
+		cellHeights[0] = firstH
 		for i := 1; i < (f.VerticalCellCount - 1); i++ {
-			cellHeights[i] = 4
+			cellHeights[i] = cellSize
 		}
 
-		// nolint:gomnd // constants
-		cellHeights[f.VerticalCellCount-1] = f.Height - h - (4 * (f.VerticalCellCount - 2))
+		cellHeights[f.VerticalCellCount-1] = f.Height - firstH - (cellSize * (f.VerticalCellCount - magic2))
 	}
+
+	return cellHeights
+}
+
+func (f *Frame) calcCellDimensions() {
+	cellWidths, cellHeights := f.calcCellWidths(), f.calcCellHeights()
+
+	frameTopLeft := f.Box.Min
+	dirTopLeft := f.direction.Box.Min
 
 	f.Cells = make([]Cell, f.HorizontalCellCount*f.VerticalCellCount)
-	offsetY := f.Box.Min.Y - f.direction.Box.Min.Y
+	pixelY := frameTopLeft.Sub(dirTopLeft).Y
 
-	for y := 0; y < f.VerticalCellCount; y++ {
-		offsetX := f.Box.Min.X - f.direction.Box.Min.X
+	// cell x,y are cell-coordinates.
+	// pixel x,y are the pixel-coordinates (in the frame, not just the cell).
+	//
+	// basically, using the cell dimensions, we are determining the
+	// root (top-left) coordinate of each cell in the frame
+	for cellY := 0; cellY < f.VerticalCellCount; cellY++ {
+		pixelX := frameTopLeft.Sub(dirTopLeft).X
 
-		for x := 0; x < f.HorizontalCellCount; x++ {
-			f.Cells[x+(y*f.HorizontalCellCount)] = Cell{
-				XOffset: offsetX,
-				YOffset: offsetY,
-				Width:   cellWidths[x],
-				Height:  cellHeights[y],
+		for cellX := 0; cellX < f.HorizontalCellCount; cellX++ {
+			cell := Cell{
+				XOffset: pixelX,
+				YOffset: pixelY,
+				Width:   cellWidths[cellX],
+				Height:  cellHeights[cellY],
 			}
 
-			offsetX += cellWidths[x]
+			cellIndex := cellX + (cellY * f.HorizontalCellCount)
+
+			f.Cells[cellIndex] = cell
+
+			pixelX += cellWidths[cellX]
 		}
 
-		offsetY += cellHeights[y]
+		pixelY += cellHeights[cellY]
 	}
 }
 
-func (f *Frame) ColorIndexAt(x, y int) uint8 {
-	pixelIndex := x + (y * f.Width)
+func (f *Frame) recalculateCells() error {
+	f.calcCellCounts()
 
-	if pixelIndex >= len(f.PixelData) {
-		pixelIndex = 0
+	if f.VerticalCellCount < 1 || f.HorizontalCellCount < 1 {
+		return errors.New("cell count cant be less than 1")
 	}
 
-	return f.PixelData[pixelIndex]
-	// return f.direction.PaletteEntries[f.PixelData[pixelIndex]]
-}
+	f.calcCellDimensions()
 
-func (f *Frame) ColorModel() color.Model {
-	return color.RGBAModel
-}
-
-func (f *Frame) Bounds() image.Rectangle {
-	return f.Box
-}
-
-func (f *Frame) At(x, y int) color.Color {
-	return f.direction.dcc.palette[f.ColorIndexAt(x, y)]
+	return nil
 }

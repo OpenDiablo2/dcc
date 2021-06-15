@@ -1,17 +1,21 @@
 package pkg
 
-import "image/color"
+import (
+	"image/color"
+	"math"
+)
 
 const numColorsInPalette = 256
 
-func DefaultPalette() color.Palette {
+func DefaultPalette() *color.Palette {
 	p := make(color.Palette, numColorsInPalette)
 
 	for idx := range p {
-		val := uint8(idx)
-		r, g, b, a := val, val, val, uint8(1)
-		p[idx] = color.RGBA{r, g, b, a}
+		c := color.RGBA{}
+		c.R, c.G, c.B, c.A = uint8(idx), uint8(idx), uint8(idx), uint8(math.MaxUint8)
+
+		p[idx] = c
 	}
 
-	return p
+	return &p
 }
