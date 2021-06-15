@@ -11,10 +11,6 @@ import (
 
 	"github.com/OpenDiablo2/HellSpawner/hscommon"
 )
-const (
-	// nolint:gomnd // constant = constant
-	maxAlpha = uint8(255)
-)
 
 const (
 	imageW, imageH = 32, 32

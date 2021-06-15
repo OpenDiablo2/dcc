@@ -5,6 +5,7 @@ import (
 	"image"
 	"image/color"
 	"log"
+	"math"
 	"time"
 
 	"github.com/ianling/giu"
@@ -114,7 +115,7 @@ func (s *widgetState) Decode(data []byte) {
 		return
 	}
 
-	s.isPlaying = (isPlaying == 1)
+	s.isPlaying = isPlaying == 1
 
 	repeat, err := sr.ReadByte()
 	if err != nil {
@@ -122,7 +123,7 @@ func (s *widgetState) Decode(data []byte) {
 		return
 	}
 
-	s.repeat = (repeat == 1)
+	s.repeat = repeat == 1
 
 	s.tickTime, err = sr.ReadInt32()
 	if err != nil {
@@ -230,7 +231,7 @@ func (p *widget) setState(s giu.Disposable) {
 }
 
 func (p *widget) makeImagePixel(val uint32) color.RGBA {
-	alpha := maxAlpha
+	alpha := uint8(math.MaxUint8)
 
 	if val == 0 {
 		alpha = 0
@@ -238,7 +239,8 @@ func (p *widget) makeImagePixel(val uint32) color.RGBA {
 
 	var r, g, b uint32
 
-	palette := p.dcc.Palette()
+	palette := *p.dcc.Palette()
+
 	if palette != nil {
 		col := palette[val]
 		r, g, b, _ = col.RGBA()
@@ -263,7 +265,7 @@ func (p *widget) runPlayer(state *widgetState) {
 		}
 
 		numFrames := len(p.dcc.Direction(0).Frames())
-		isLastFrame := state.controls.frame == int32(numFrames - 1)
+		isLastFrame := state.controls.frame == int32(numFrames-1)
 
 		// update play direction
 		switch state.playMode {
