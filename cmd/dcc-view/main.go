@@ -57,7 +57,3 @@ func main() {
 func printUsage() {
 	fmt.Printf("Usage:\r\n\t%s path/to/file.lib", os.Args[0])
 }
-
-func render() {
-
-}
