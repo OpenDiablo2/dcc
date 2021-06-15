@@ -1,51 +1,74 @@
 package main
 
 import (
+	"bytes"
+	"flag"
 	"fmt"
+	"image/color"
 	"io/ioutil"
-	"os"
 
-	"github.com/OpenDiablo2/HellSpawner/hscommon"
 	"github.com/ianling/giu"
 
-	lib "github.com/gravestench/dcc/pkg"
-	"github.com/gravestench/dcc/pkg/giuwidget"
+	"github.com/OpenDiablo2/HellSpawner/hscommon"
+
+	dccLib "github.com/gravestench/dcc/pkg"
+	dccWidget "github.com/gravestench/dcc/pkg/giuwidget"
+	gpl "github.com/gravestench/gpl/pkg"
 )
 
 const (
-	title = "dcc viewer"
-	defaultWidth = 256
+	title         = "dcc viewer"
+	defaultWidth  = 256
 	defaultHeight = 256
-	windowFlags = giu.MasterWindowFlagsFloating & giu.MasterWindowFlagsNotResizable
+	windowFlags   = giu.MasterWindowFlagsFloating & giu.MasterWindowFlagsNotResizable
 )
 
 func main() {
-	if len(os.Args) < 2 {
-		printUsage()
+	var o options
+
+	if showUsage := parseOptions(&o); showUsage {
+		flag.Usage()
 		return
 	}
 
-	srcPath := os.Args[1]
-
-	fileContents, err := ioutil.ReadFile(srcPath)
+	fileContents, err := ioutil.ReadFile(*o.dccPath)
 	if err != nil {
-		const fmtErr = "could not read file, %v"
+		const fmtErr = "could not read file, %w"
+
 		fmt.Print(fmt.Errorf(fmtErr, err))
 
 		return
 	}
 
-	dcc, err := lib.FromBytes(fileContents)
+	dcc, err := dccLib.FromBytes(fileContents)
 	if err != nil {
 		fmt.Print(err)
 		return
+	}
+
+	if *o.palPath != "" {
+		palData, err := ioutil.ReadFile(*o.palPath)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+
+		gplInstance, err := gpl.Decode(bytes.NewBuffer(palData))
+		if err != nil {
+			fmt.Println("palette is not a GIMP palette file...")
+			return
+		}
+
+		dcc.SetPalette(color.Palette(*gplInstance))
+	} else {
+		dcc.SetPalette(nil)
 	}
 
 	window := giu.NewMasterWindow(title, defaultWidth, defaultHeight, windowFlags, nil)
 
 	tl := hscommon.NewTextureLoader()
 
-	widget := giuwidget.Create(tl, nil, "dccviewer", dcc)
+	widget := dccWidget.Create(tl, nil, "dccviewer", dcc)
 
 	window.Run(func() {
 		tl.ResumeLoadingTextures()
@@ -54,6 +77,18 @@ func main() {
 	})
 }
 
-func printUsage() {
-	fmt.Printf("Usage:\r\n\t%s path/to/file.lib", os.Args[0])
+type options struct {
+	dccPath *string
+	palPath *string
+	pngPath *string
+}
+
+func parseOptions(o *options) (terminate bool) {
+	o.dccPath = flag.String("dcc", "", "input dcc file (required)")
+	o.palPath = flag.String("pal", "", "input pal file (optional)")
+	o.pngPath = flag.String("png", "", "path to png file (optional)")
+
+	flag.Parse()
+
+	return *o.dccPath == ""
 }
