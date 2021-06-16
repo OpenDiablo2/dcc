@@ -3,8 +3,9 @@ package pkg
 import (
 	"errors"
 	"fmt"
-	"github.com/gravestench/bitstream"
 	"image"
+
+	"github.com/gravestench/bitstream"
 )
 
 var _ image.PalettedImage = &Frame{}
