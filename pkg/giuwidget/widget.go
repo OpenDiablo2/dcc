@@ -4,12 +4,10 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/ianling/giu"
-	"github.com/ianling/imgui-go"
+	"github.com/AllenDang/giu"
+	"github.com/AllenDang/imgui-go"
 
 	dcclib "github.com/gravestench/dcc/pkg"
-
-	"github.com/OpenDiablo2/HellSpawner/hscommon"
 )
 
 const (
@@ -19,15 +17,15 @@ const (
 type widget struct {
 	id            string
 	dcc           *dcclib.DCC
-	textureLoader hscommon.TextureLoader
+	textureLoader TextureLoader
 }
 
 // Create creates a new dcc widget
-func Create(tl hscommon.TextureLoader, state []byte, id string, dcc *dcclib.DCC) giu.Widget {
+func Create(state []byte, id string, dcc *dcclib.DCC) giu.Widget {
 	result := &widget{
 		id:            id,
 		dcc:           dcc,
-		textureLoader: tl,
+		textureLoader: NewTextureLoader(),
 	}
 
 	if giu.Context.GetState(result.getStateID()) == nil && state != nil {
@@ -41,6 +39,9 @@ func Create(tl hscommon.TextureLoader, state []byte, id string, dcc *dcclib.DCC)
 
 // Build build a widget
 func (p *widget) Build() {
+	p.textureLoader.ResumeLoadingTextures()
+	p.textureLoader.ProcessTextureLoadRequests()
+
 	viewerState := p.getState()
 
 	imageScale := uint32(viewerState.controls.scale)
