@@ -8,11 +8,9 @@ import (
 	"math"
 	"time"
 
-	"github.com/ianling/giu"
+	"github.com/AllenDang/giu"
 
 	"github.com/OpenDiablo2/OpenDiablo2/d2common/d2datautils"
-
-	"github.com/OpenDiablo2/HellSpawner/hscommon/hsutil"
 )
 
 const miliseconds = 1000
@@ -67,6 +65,14 @@ func (s *widgetState) Dispose() {
 	s.textures = nil
 }
 
+func b2i(b bool) (i int) {
+	if b {
+		return 1
+	}
+
+	return 0
+}
+
 func (s *widgetState) Encode() []byte {
 	sw := d2datautils.CreateStreamWriter()
 
@@ -74,8 +80,8 @@ func (s *widgetState) Encode() []byte {
 	sw.PushInt32(s.controls.frame)
 	sw.PushInt32(s.controls.scale)
 
-	sw.PushBytes(byte(hsutil.BoolToInt(s.isPlaying)))
-	sw.PushBytes(byte(hsutil.BoolToInt(s.repeat)))
+	sw.PushBytes(byte(b2i(s.isPlaying)))
+	sw.PushBytes(byte(b2i(s.repeat)))
 
 	sw.PushInt32(s.tickTime)
 	sw.PushBytes(byte(s.playMode))
@@ -258,6 +264,17 @@ func (p *widget) makeImagePixel(val uint32) color.RGBA {
 	return RGBAColor
 }
 
+// wrap integer to max: wrap(450, 360) == 90
+func wrap(x, max int) int {
+	wrapped := x % max
+
+	if wrapped < 0 {
+		return max + wrapped
+	}
+
+	return wrapped
+}
+
 func (p *widget) runPlayer(state *widgetState) {
 	for range state.ticker.C {
 		if !state.isPlaying {
@@ -286,7 +303,7 @@ func (p *widget) runPlayer(state *widgetState) {
 			state.controls.frame--
 		}
 
-		state.controls.frame = int32(hsutil.Wrap(int(state.controls.frame), numFrames))
+		state.controls.frame = int32(wrap(int(state.controls.frame), numFrames))
 
 		// next, check for stopping/repeat
 		isStoppingFrame := (state.controls.frame == 0) || (state.controls.frame == int32(numFrames-1))
