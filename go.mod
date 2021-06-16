@@ -3,10 +3,10 @@ module github.com/gravestench/dcc
 go 1.16
 
 require (
-	github.com/OpenDiablo2/HellSpawner v0.0.0-20210601231927-c07ca9a8dc1f
-	github.com/OpenDiablo2/OpenDiablo2 v0.0.0-20210514222603-a688d660a0f7 // indirect
-	github.com/gravestench/bitstream v0.0.0-20210601231844-f27bc8532809
-	github.com/gravestench/gpl v0.0.0-20210613190341-3dd16317a222 // indirect
-	github.com/ianling/giu v0.5.1-0.20210524205023-4d3114338b69
-	github.com/ianling/imgui-go v1.12.1-0.20210420174252-e90a22fb87e6
+	github.com/AllenDang/giu v0.5.4
+	github.com/AllenDang/imgui-go v1.12.1-0.20210509113325-c0e4c78e7a88 // indirect
+	github.com/OpenDiablo2/OpenDiablo2 v0.0.0-20210514222603-a688d660a0f7
+	github.com/enriquebris/goconcurrentqueue v0.6.0
+	github.com/gravestench/bitstream v0.0.0-20210602033510-6e018ddc185f
+	github.com/gravestench/gpl v0.0.0-20210615232229-779e263cf91e // indirect
 )

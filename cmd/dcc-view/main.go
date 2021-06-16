@@ -7,13 +7,12 @@ import (
 	"image/color"
 	"io/ioutil"
 
-	"github.com/ianling/giu"
+	"github.com/AllenDang/giu"
 
-	"github.com/OpenDiablo2/HellSpawner/hscommon"
+	gpl "github.com/gravestench/gpl/pkg"
 
 	dccLib "github.com/gravestench/dcc/pkg"
 	dccWidget "github.com/gravestench/dcc/pkg/giuwidget"
-	gpl "github.com/gravestench/gpl/pkg"
 )
 
 const (
@@ -66,13 +65,9 @@ func main() {
 
 	window := giu.NewMasterWindow(title, defaultWidth, defaultHeight, windowFlags, nil)
 
-	tl := hscommon.NewTextureLoader()
-
-	widget := dccWidget.Create(tl, nil, "dccviewer", dcc)
+	widget := dccWidget.Create(nil, "dccviewer", dcc)
 
 	window.Run(func() {
-		tl.ResumeLoadingTextures()
-		tl.ProcessTextureLoadRequests()
 		giu.SingleWindow("dcc viewer").Layout(widget)
 	})
 }
