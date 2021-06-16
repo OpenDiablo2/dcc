@@ -99,6 +99,14 @@ func (p *widget) Build() {
 }
 
 func dirLookup(dir, numDirs int) int {
+	const (
+		_ = 1 << iota
+		_
+		four
+		eight
+		sixteen
+	)
+
 	d4 := []int{0, 1, 2, 3}
 	d8 := []int{0, 5, 1, 6, 2, 7, 3, 4}
 	d16 := []int{0, 9, 5, 10, 1, 11, 6, 12, 2, 13, 7, 14, 3, 15, 4, 8}
@@ -106,11 +114,11 @@ func dirLookup(dir, numDirs int) int {
 	lookup := []int{0}
 
 	switch numDirs {
-	case 4:
+	case four:
 		lookup = d4
-	case 8:
+	case eight:
 		lookup = d8
-	case 16:
+	case sixteen:
 		lookup = d16
 	default:
 		dir = 0
