@@ -1,7 +1,7 @@
 <!-- PROJECT LOGO -->
-<h3 align="center">dcc</h3>
+<h1 align="center">DCC</h1>
 <p align="center">
-  Individual package focusing on dcc file transcoding
+  Package for transcoding DCC image files.
   <br />
   <br />
   <a href="https://github.com/gravestench/dcc/issues">Report Bug</a>
@@ -10,57 +10,51 @@
 </p>
 
 <!-- ABOUT THE PROJECT -->
-## About The Project
+## About
 
-[![Product Name Screen Shot][product-screenshot]](https://example.com)
+This package provides a DCC image transcoder implementation.
 
-The big-picture idea behind this repo is utilities dealing with dcc file transcoding are 
-self-contained. You should not need to install monolithic GUI applications to do simple file 
-operations e.g. converting a dcc file into a sequence of PNG files. You should be able to clone the 
-source, build and install the CLI/GUI tools and work with these file types easily.
+This package also contains command-line and graphical applications for working with DCC image files.
 
-Other repos that deal with transcoding are:
-* [pl2]
-* [dt1]
-* [dc6]
-* [dat_palette]
-* [ds1]
-* [cof]
+## Project Structure
+* `pkg/` - This directory contains the core DCC transcoder library. This is the directory to import if you want to 
+  write new golang applications using this library.
+    ```golang
+   import (
+        dcc "github.com/gravestench/dcc/pkg"
+  )
+    ```
+* `cmd/` - This directory contains command-line and graphical applications, each having their own sub-directory.
+* `assets/` - This directory contains files, like the images displayed in this README, or test dcc file data.
 
 ## Getting Started
 
 ### Prerequisites
-* [Go 1.16][golang]
+You need to install [Go 1.16][golang], as well as set up your go environment. 
+In order to install the applications inside of `cmd/`, you will need to 
+make sure that `$GOBIN` is defined and points to a valid directory, 
+and this will also need to be added to your `$PATH` environment variable.
+```shell
+export GOBIN=$HOME/.gobin
+mkdir -p $GOBIN
+PATH=$PATH:$GOBIN
+```
 
 ### Installation
-As long as `$GOBIN` is defined and on your `$PATH`, you can build and install the apps inside of 
-`~/cmd` by running these commands:
+As long as `$GOBIN` is defined and on your `$PATH`, you can build and install all apps inside of 
+`cmd/` by running these commands:
 
-```
-$ git clone http://github.com/gravestench/dcc
-$ cd dcc
-$ go build ./cmd/...
-$ go install ./cmd/...
-```
-## Usage
-After installation is completed, you can run the `dcc-view` app from the repo (located at 
-`~/cmd/dcc-view`) by running the following:
+```shell
+# clone the repo, enter the dir
+git clone http://github.com/gravestench/dcc
+cd dcc
 
-```
-$ dcc-view -dcc <dcc file>
+# build and install inside of $GOBIN
+go build ./cmd/...
+go install ./cmd/...
 ```
 
-Without a GPL palette file, this will show the colors as grayscale, where the palette index is the
-R, G,and B values for the pixel.
-
-To run the dcc viewer with a palette, I had to make the [PL2 transcoder repo][pl2], and then make a
-simple app to extract the palette from the pl2 file 
-(in this case, `data/global/palette/act1/Pal.pl2` inside of the `d2data.mpq` file). You can pass
-any 256 color GPL file to the `dcc-view` app like this:
-
-```
-dcc-view -dcc <dcc file> -pal <gpl palette file>
-```
+At this point, you should be able to run the apps inside of `cmd/` from the command-line, like `dcc-view`.
 
 <!-- CONTRIBUTING -->
 ## Contributing
@@ -78,8 +72,6 @@ Any contributions are **greatly appreciated**.
 5. Open a Pull Request
 
 <!-- MARKDOWN LINKS & IMAGES -->
-[product-screenshot]: assets/dcc_viewer.webp
-[pl2]: https://github.com/gravestench/pl2
 [dt1]: https://github.com/gravestench/dt1
 [dc6]: https://github.com/gravestench/dc6
 [dat_palette]: https://github.com/gravestench/dat_palette
