@@ -11,7 +11,7 @@ import (
 	"os"
 	"path/filepath"
 
-	dcc "github.com/gravestench/dcc/pkg"
+	dcc "github.com/OpenDiablo2/dcc/pkg"
 	gpl "github.com/gravestench/gpl/pkg"
 )
 

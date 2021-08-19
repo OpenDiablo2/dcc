@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"image"
 
-	"github.com/gravestench/bitstream"
+	"github.com/OpenDiablo2/bitstream"
 )
 
 var _ image.PalettedImage = &Frame{}

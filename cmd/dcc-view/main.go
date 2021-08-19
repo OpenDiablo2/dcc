@@ -11,8 +11,8 @@ import (
 
 	gpl "github.com/gravestench/gpl/pkg"
 
-	dccLib "github.com/gravestench/dcc/pkg"
-	dccWidget "github.com/gravestench/dcc/pkg/giuwidget"
+	dccLib "github.com/OpenDiablo2/dcc/pkg"
+	dccWidget "github.com/OpenDiablo2/dcc/pkg/giuwidget"
 )
 
 const (
@@ -58,17 +58,17 @@ func main() {
 			return
 		}
 
-		dcc.SetPalette(color.Palette(*gplInstance))
+		dcc.SetPalette(color.Palette(gplInstance))
 	} else {
 		dcc.SetPalette(nil)
 	}
 
-	window := giu.NewMasterWindow(title, defaultWidth, defaultHeight, windowFlags, nil)
+	window := giu.NewMasterWindow(title, defaultWidth, defaultHeight, windowFlags)
 
 	widget := dccWidget.Create(nil, "dccviewer", dcc)
 
 	window.Run(func() {
-		giu.SingleWindow("dcc viewer").Layout(widget)
+		giu.SingleWindow().Layout(widget)
 	})
 }
 
