@@ -7,7 +7,7 @@ import (
 	"github.com/AllenDang/giu"
 	"github.com/AllenDang/imgui-go"
 
-	dcclib "github.com/gravestench/dcc/pkg"
+	dcclib "github.com/OpenDiablo2/dcc/pkg"
 )
 
 const (

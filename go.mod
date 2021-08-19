@@ -1,12 +1,13 @@
-module github.com/gravestench/dcc
+module github.com/OpenDiablo2/dcc
 
 go 1.16
 
 require (
-	github.com/AllenDang/giu v0.5.4
-	github.com/AllenDang/imgui-go v1.12.1-0.20210509113325-c0e4c78e7a88 // indirect
+	github.com/AllenDang/giu v0.5.6
+	github.com/AllenDang/imgui-go v1.12.1-0.20210816034733-e162f16e0278
 	github.com/OpenDiablo2/OpenDiablo2 v0.0.0-20210514222603-a688d660a0f7
+	github.com/OpenDiablo2/bitstream v0.0.0-20210818234514-9fca7e40e2b3
 	github.com/enriquebris/goconcurrentqueue v0.6.0
-	github.com/gravestench/bitstream v0.0.0-20210602033510-6e018ddc185f
-	github.com/gravestench/gpl v0.0.0-20210615232229-779e263cf91e // indirect
+	github.com/go-gl/gl v0.0.0-20210813123233-e4099ee2221f // indirect
+	github.com/gravestench/gpl v0.0.0-20210624060123-667359aa05ca
 )
